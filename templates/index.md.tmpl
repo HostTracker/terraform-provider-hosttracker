@@ -1,0 +1,53 @@
+---
+page_title: "HostTracker Provider"
+description: |-
+  Manage HostTracker monitoring as code: uptime, port, blacklist, certificate and domain checks, on the HostTracker API v2.
+---
+
+# HostTracker Provider
+
+Manage [HostTracker](https://www.host-tracker.com) monitoring as code. Monitors declared in Terraform are created,
+changed and removed through the HostTracker **API v2**, the same surface the web app and the SDKs use.
+
+## Authentication
+
+Mint a token in the web app under **Integrations → API**
+(<https://www.host-tracker.com/integrations/api>), carrying the scopes the configuration needs: `monitor:read` and
+`monitor:write` for the monitor resource, plus `account:read` for the `hosttracker_account` data source. A token may
+also carry an IP allow-list and a self-cap.
+
+Put it in the `HT_TOKEN` environment variable rather than in the provider block: a token written into the
+configuration ends up in version control, and in the state file as well. A token cannot be revoked before it
+expires - only an account-wide API disable kills every token at once.
+
+## Example Usage
+
+{{ tffile "examples/provider/provider.tf" }}
+
+```hcl
+resource "hosttracker_monitor" "marketing" {
+  type     = "http"
+  url      = "https://example.com/"
+  name     = "Marketing site"
+  interval = 300
+
+  locations = {
+    pools = ["allworld"]
+  }
+
+  settings = {
+    http = {
+      keywords        = "Sign in"
+      follow_redirect = true
+    }
+  }
+}
+```
+
+## Rate limits
+
+Terraform's default parallelism of 10 is comfortable under a paid plan's quota. On a trial token (10 reads and 5
+writes a minute) run `terraform apply -parallelism=3`. The provider retries a `429 rate_limited` honouring the
+API's `Retry-After`, but a whole plan applied at once can still exhaust the window.
+
+{{ .SchemaMarkdown | trimspace }}
